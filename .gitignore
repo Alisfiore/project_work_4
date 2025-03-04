@@ -5,3 +5,4 @@ desktop.ini
 .vscode/
 .venv/
 notebooks/.ipynb_checkpoints
+.env

@@ -18,7 +18,10 @@ print(df)
 print(df.nunique())
 
 print(df.isnull().sum())
-
+df["cap"] = df["cap"].astype(str).str.zfill(5)
+print(df["cap"])
+df = df.sort_values(by=["region","city"])
+print(df)
 
 with psycopg.connect(host=host, dbname = dbname, user = user, password= password, port = port) as conn:
     with conn.cursor() as cur:
