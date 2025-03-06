@@ -3,6 +3,8 @@ import pandas as pd
 from dotenv import load_dotenv
 import psycopg
 
+
+#va a cercare le variabili dell'ambiente
 load_dotenv()
 host = os.getenv("host")
 dbname = os.getenv("dbname")
@@ -11,8 +13,13 @@ password = os.getenv("password")
 port = os.getenv("port")
 
 df = pd.read_csv(r"../data/raw/olistIT_products.csv")
-print("Initial DataFrame:")
-print(df.head())
+print(df)
+
+print(df.nunique())
+
+print(df.isnull().sum())
+
+print(df.info())
 
 df["category"] = df["category"].str.lower().str.strip()
 
@@ -35,11 +42,10 @@ old_categories = [
 new_categories_map = {
     "Agribusiness and Trade": ["agro_industry_and_commerce", "industry_commerce_and_business"],
     "Food and Beverages": ["food", "food_drink", "drinks", "la_cuisine"],
-    "Arts and Crafts": ["art", "arts_and_craftmanship", "arts_and_craftsmanship"],
+    "Arts and Crafts": ["art", "arts_and_craftsmanship", "arts_and_craftmanship"],
     "General Items": ["cool_stuff", "party_supplies", "stationery", "office_furniture"],
     "Tools and Construction": ["construction_tools_construction", "construction_tools_lights",
-                               "construction_tools_garden", "construction_tools_tools", "garden_tools",
-                               "costruction_tools_garden",
+                               "construction_tools_garden", "construction_tools_tools", "garden_tools", "costruction_tools_garden",
                                "costruction_tools_tools"],
     "Music": ["music", "musical_instruments", "cds_dvds_musicals", "dvds_blu_ray"],
     "Home": ["furniture_bedroom", "furniture_decor", "furniture_living_room", "furniture_mattress_and_upholstery",
@@ -50,8 +56,7 @@ new_categories_map = {
                                            "tablets_printing_image", "video_photo", "air_conditioning"],
     "Books": ["books_general_interest", "books_imported", "books_technical"],
     "Clothing and Fashion": ["fashio_female_clothing", "fashion_bags_accessories", "fashion_childrens_clothes",
-                             "fashion_male_clothing", "fashion_shoes", "fashion_sport", "fashion_underwear_beach",
-                             "luggage_accessories"],
+                             "fashion_male_clothing", "fashion_shoes", "fashion_sport", "fashion_underwear_beach", "luggage_accessories"],
     "Pets": ["pet_shop"],
     "Baby Products": ["baby", "diapers_and_hygiene", "toys"],
     "Home Appliances": ["home_appliances", "home_appliances_2", "small_appliances",
@@ -63,8 +68,10 @@ new_categories_map = {
     "Other": ["NaN"]
 }
 
+# Creazione DataFrame con ID seriale
 df_old = pd.DataFrame({"category_id": range(1, len(old_categories) + 1), "old_category": old_categories})
 
+# Creare mapping tra vecchie e nuove categorie
 mapping_list = []
 for new_cat, old_cats in new_categories_map.items():
     for old_cat in old_cats:
@@ -72,32 +79,11 @@ for new_cat, old_cats in new_categories_map.items():
 
 df_mapping = pd.DataFrame(mapping_list)
 
-# Merge to link old categories with new categories
+# Merge per collegare le vecchie categorie con le nuove
 df_final = df_old.merge(df_mapping, on="old_category", how="left")
 
-# Print the mapping DataFrame to verify it
-print("Mapping DataFrame:")
-print(df_final.head())
-
-# Add new categories to the DataFrame
-df = df.merge(df_final[['old_category', 'category']], left_on='category', right_on='old_category', how='left')
-
-# Check if the merge was successful
-print("DataFrame after merge:")
-print(df.head())
-
-
-# Remove the 'old_category' column
-df.drop(columns=["old_category"], inplace=True)
-
-
-# Handle missing values (if necessary)
-df = df.fillna(0)
-
-# Connect to PostgreSQL database
-with psycopg.connect(host=host, dbname=dbname, user=user, password=password, port=port) as conn:
+with psycopg.connect(host=host, dbname = dbname, user = user, password= password, port = port) as conn:
     with conn.cursor() as cur:
-        # Create table if it does not exist
         sql = """
         CREATE TABLE IF NOT EXISTS products (
         pk_product_id character varying PRIMARY KEY,
@@ -107,18 +93,13 @@ with psycopg.connect(host=host, dbname=dbname, user=user, password=password, por
         product_photos_qty character varying);
         """
         cur.execute(sql)
-
-        # Prepare insert query
         sql = """
         INSERT INTO products
-        (pk_product_id, category, product_name_lenght, product_description_lenght, product_photos_qty)
+        (pk_product_id, category, product_name_lenght, product_description_lenght, product_photos_qty) 
         VALUES (%s, %s, %s, %s, %s);
         """
 
-        # Execute insert for each row in the DataFrame
         for index, row in df.iterrows():
-            cur.execute(sql, [row['pk_product_id'], row['category'], row['product_name_lenght'], row['product_description_lenght'], row['product_photos_qty']])
+            cur.execute(sql, row.to_list())
 
-
-        # Commit changes to the database
         conn.commit()
